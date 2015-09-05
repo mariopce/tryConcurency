@@ -97,6 +97,48 @@ public class FutureTest {
         waits(3);
     }
 
+
+    @Test(timeout = 6000)
+    public void testTransformaAsync() throws ExecutionException {
+        //Given a thread pool
+        final ListeningExecutorService service = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(10));
+        log.info("Start work");
+        final String testString = "Mario";
+        ListenableFuture<String> task = service.submit(new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+                log.info("Start creating test string");
+                Thread.sleep(1000); // work work
+                log.info("return creating test string");
+                return testString;
+            }
+        });
+        log.info("String ----- ");
+        ListenableFuture<Integer> asyncTask = Futures.transformAsync(task, new AsyncFunction<String, Integer>() {
+
+            @Override
+            public ListenableFuture<Integer> apply(final String input) throws Exception {
+                return service.submit(new Callable<Integer>() {
+                    @Override
+                    public Integer call() throws Exception {
+                        log.info("start swap string to int");
+                        Thread.sleep(1000); // work work
+                        log.info("stop swap int");
+                        return input.length();
+                    }
+                });
+            }
+        });
+        log.info("int ----- ");
+        try {
+            assertThat(asyncTask.get()).isEqualTo(5);
+            service.shutdown();
+            service.awaitTermination(4, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            log.error("ignore", e);
+        }
+    }
+
     private void waits(int ts) {
         synchronized (this) {
             try {
